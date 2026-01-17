@@ -5,8 +5,14 @@ Command-line interface for the P2P texting application.
 """
 
 import sys
-import threading
+import logging
 from .peer import Peer
+
+# Configure logging
+logging.basicConfig(
+    level=logging.WARNING,
+    format='%(levelname)s: %(message)s'
+)
 
 
 class CLI:

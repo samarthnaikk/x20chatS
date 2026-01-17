@@ -10,7 +10,10 @@ import socket
 import json
 import threading
 import time
+import logging
 from typing import Dict, Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class PeerDiscovery:
@@ -93,7 +96,7 @@ class PeerDiscovery:
             except Exception as e:
                 # Only log broadcast errors once to avoid spam
                 if self.running and not self.broadcast_error_logged:
-                    print(f"Warning: Broadcast not available ({e}). Discovery will still work via listening.")
+                    logger.warning("Broadcast not available (%s). Discovery will still work via listening.", e)
                     self.broadcast_error_logged = True
             
             time.sleep(self.BROADCAST_INTERVAL)
@@ -136,7 +139,7 @@ class PeerDiscovery:
                 continue  # Ignore malformed messages
             except Exception as e:
                 if self.running:
-                    print(f"Error listening for peers: {e}")
+                    logger.error("Error listening for peers: %s", e)
     
     def get_peers(self) -> Dict[str, Dict]:
         """

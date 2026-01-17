@@ -8,7 +8,10 @@ It provides functionality to send and receive text messages between peers.
 import socket
 import json
 import threading
+import logging
 from typing import Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class MessagingService:
@@ -107,13 +110,13 @@ class MessagingService:
             return True
             
         except socket.timeout:
-            print(f"Connection timeout - peer at {peer_ip}:{peer_port} not responding")
+            logger.warning("Connection timeout - peer at %s:%s not responding", peer_ip, peer_port)
             return False
         except ConnectionRefusedError:
-            print(f"Connection refused - peer at {peer_ip}:{peer_port} not available")
+            logger.warning("Connection refused - peer at %s:%s not available", peer_ip, peer_port)
             return False
         except Exception as e:
-            print(f"Error sending message: {e}")
+            logger.error("Error sending message: %s", e)
             return False
     
     def _listen_for_messages(self):
@@ -135,7 +138,7 @@ class MessagingService:
                 continue  # Normal timeout, check if still running
             except Exception as e:
                 if self.running:
-                    print(f"Error accepting connection: {e}")
+                    logger.error("Error accepting connection: %s", e)
     
     def _handle_connection(self, client_socket: socket.socket, addr):
         """Handle an incoming connection from a peer."""
@@ -149,7 +152,7 @@ class MessagingService:
             
             # Validate message length
             if message_length > self.MAX_MESSAGE_SIZE:
-                print(f"Message too large ({message_length} bytes), ignoring")
+                logger.warning("Message too large (%d bytes), ignoring", message_length)
                 return
             
             # Receive message data
@@ -172,8 +175,8 @@ class MessagingService:
                     self.on_message_received(from_peer, message_text)
                     
         except json.JSONDecodeError:
-            print(f"Received malformed message from {addr}")
+            logger.warning("Received malformed message from %s", addr)
         except Exception as e:
-            print(f"Error handling connection from {addr}: {e}")
+            logger.error("Error handling connection from %s: %s", addr, e)
         finally:
             client_socket.close()
