@@ -199,6 +199,15 @@ class Peer:
         
         try:
             transfer_info["file_handle"] = open(save_path, 'wb')
+        except PermissionError:
+            print(f"Error: Permission denied writing to {save_path}")
+            del self.active_file_transfers[file_id]
+            return False
+        except OSError as e:
+            # Covers disk full, invalid path, etc.
+            print(f"Error: Cannot write to file - {e}")
+            del self.active_file_transfers[file_id]
+            return False
         except Exception as e:
             print(f"Error: Cannot open file for writing: {e}")
             del self.active_file_transfers[file_id]

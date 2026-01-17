@@ -30,6 +30,8 @@ class MessagingService:
     MAX_MESSAGE_SIZE = 4096
     CHUNK_SIZE = 8192  # 8KB chunks for file transfer
     
+    MAX_MESSAGES_PER_CONNECTION = 1000  # Limit to prevent resource exhaustion
+    
     def __init__(self, peer_id: str, port: int = 0, on_message_received: Optional[Callable] = None,
                  on_file_request: Optional[Callable] = None,
                  on_file_response: Optional[Callable] = None,
@@ -316,12 +318,11 @@ class MessagingService:
     
     def _handle_connection(self, client_socket: socket.socket, addr):
         """Handle an incoming connection from a peer."""
-        max_messages_per_connection = 1000  # Limit to prevent resource exhaustion
         message_count = 0
         
         try:
             # Keep connection open for multiple messages (file chunks)
-            while message_count < max_messages_per_connection:
+            while message_count < self.MAX_MESSAGES_PER_CONNECTION:
                 message_count += 1
                 
                 # Receive message length

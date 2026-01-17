@@ -12,8 +12,10 @@ from textual.binding import Binding
 from textual.reactive import reactive
 from textual.message import Message
 from typing import Optional
+from pathlib import Path
 import threading
 import time
+import os
 
 from .peer import Peer
 
@@ -482,7 +484,6 @@ class P2PTextingApp(App):
             event.input.value = ""
             
             # Validate file exists
-            import os
             if not os.path.exists(file_path):
                 if self.selected_peer not in self.peer_conversations:
                     self.peer_conversations[self.selected_peer] = []
@@ -573,9 +574,6 @@ class P2PTextingApp(App):
             return
         
         # Create data directory if it doesn't exist
-        import os
-        from pathlib import Path
-        
         # Get project root directory
         project_root = Path(__file__).parent.parent.parent
         data_dir = project_root / "data" / "received_files"
