@@ -139,3 +139,7 @@ Desktop.ini
 *.tmp
 *.temp
 .logs/
+
+# Data directory - received files
+data/received_files/
+data/test_file.txt

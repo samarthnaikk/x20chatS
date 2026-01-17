@@ -317,64 +317,74 @@ class MessagingService:
     def _handle_connection(self, client_socket: socket.socket, addr):
         """Handle an incoming connection from a peer."""
         try:
-            # Receive message length
-            length_bytes = client_socket.recv(4)
-            if not length_bytes:
-                return
+            # Keep connection open for multiple messages (file chunks)
+            while True:
+                # Receive message length
+                length_bytes = client_socket.recv(4)
+                if not length_bytes:
+                    break  # Connection closed
+                    
+                message_length = int.from_bytes(length_bytes, byteorder='big')
                 
-            message_length = int.from_bytes(length_bytes, byteorder='big')
-            
-            # Validate message length
-            if message_length > self.MAX_MESSAGE_SIZE:
-                logger.warning("Message too large (%d bytes), ignoring", message_length)
-                return
-            
-            # Receive message data
-            message_bytes = b''
-            while len(message_bytes) < message_length:
-                chunk = client_socket.recv(min(message_length - len(message_bytes), 4096))
-                if not chunk:
+                # Validate message length
+                if message_length > self.MAX_MESSAGE_SIZE:
+                    logger.warning("Message too large (%d bytes), ignoring", message_length)
                     break
-                message_bytes += chunk
-            
-            # Parse message
-            message_data = json.loads(message_bytes.decode('utf-8'))
-            message_type = message_data.get("type")
-            
-            if message_type == self.MESSAGE_TYPE:
-                from_peer = message_data.get("from")
-                message_text = message_data.get("message")
                 
-                # Notify about received message
-                if self.on_message_received:
-                    self.on_message_received(from_peer, message_text)
-            
-            elif message_type == self.FILE_REQUEST_TYPE:
-                from_peer = message_data.get("from")
-                file_id = message_data.get("file_id")
-                filename = message_data.get("filename")
-                filesize = message_data.get("filesize")
+                # Receive message data
+                message_bytes = b''
+                while len(message_bytes) < message_length:
+                    chunk = client_socket.recv(min(message_length - len(message_bytes), 4096))
+                    if not chunk:
+                        break
+                    message_bytes += chunk
                 
-                if self.on_file_request:
-                    self.on_file_request(from_peer, file_id, filename, filesize)
-            
-            elif message_type in (self.FILE_ACCEPT_TYPE, self.FILE_REJECT_TYPE):
-                from_peer = message_data.get("from")
-                file_id = message_data.get("file_id")
-                accepted = message_type == self.FILE_ACCEPT_TYPE
-                save_path = message_data.get("save_path")
+                if len(message_bytes) < message_length:
+                    break  # Incomplete message
                 
-                if self.on_file_response:
-                    self.on_file_response(from_peer, file_id, accepted, save_path)
-            
-            elif message_type == self.FILE_CHUNK_TYPE:
-                from_peer = message_data.get("from")
-                file_id = message_data.get("file_id")
-                chunk_num = message_data.get("chunk_num")
+                # Parse message
+                message_data = json.loads(message_bytes.decode('utf-8'))
+                message_type = message_data.get("type")
                 
-                # Read chunk length and data
-                chunk_length_bytes = client_socket.recv(4)
-                if chunk_length_bytes:
+                if message_type == self.MESSAGE_TYPE:
+                    from_peer = message_data.get("from")
+                    message_text = message_data.get("message")
+                    
+                    # Notify about received message
+                    if self.on_message_received:
+                        self.on_message_received(from_peer, message_text)
+                    break  # Close connection after text message
+                
+                elif message_type == self.FILE_REQUEST_TYPE:
+                    from_peer = message_data.get("from")
+                    file_id = message_data.get("file_id")
+                    filename = message_data.get("filename")
+                    filesize = message_data.get("filesize")
+                    
+                    if self.on_file_request:
+                        self.on_file_request(from_peer, file_id, filename, filesize)
+                    break  # Close connection after file request
+                
+                elif message_type in (self.FILE_ACCEPT_TYPE, self.FILE_REJECT_TYPE):
+                    from_peer = message_data.get("from")
+                    file_id = message_data.get("file_id")
+                    accepted = message_type == self.FILE_ACCEPT_TYPE
+                    save_path = message_data.get("save_path")
+                    
+                    if self.on_file_response:
+                        self.on_file_response(from_peer, file_id, accepted, save_path)
+                    break  # Close connection after response
+                
+                elif message_type == self.FILE_CHUNK_TYPE:
+                    from_peer = message_data.get("from")
+                    file_id = message_data.get("file_id")
+                    chunk_num = message_data.get("chunk_num")
+                    
+                    # Read chunk length and data
+                    chunk_length_bytes = client_socket.recv(4)
+                    if not chunk_length_bytes:
+                        break
+                    
                     chunk_length = int.from_bytes(chunk_length_bytes, byteorder='big')
                     chunk_data = b''
                     while len(chunk_data) < chunk_length:
@@ -383,24 +393,34 @@ class MessagingService:
                             break
                         chunk_data += data
                     
+                    if len(chunk_data) < chunk_length:
+                        break  # Incomplete chunk
+                    
                     if self.on_file_chunk:
                         self.on_file_chunk(from_peer, file_id, chunk_num, chunk_data)
-            
-            elif message_type == self.FILE_COMPLETE_TYPE:
-                from_peer = message_data.get("from")
-                file_id = message_data.get("file_id")
-                total_chunks = message_data.get("total_chunks")
+                    # Continue to next message (more chunks or completion)
                 
-                if self.on_file_complete:
-                    self.on_file_complete(from_peer, file_id, total_chunks)
-            
-            elif message_type == self.FILE_ERROR_TYPE:
-                from_peer = message_data.get("from")
-                file_id = message_data.get("file_id")
-                error = message_data.get("error")
+                elif message_type == self.FILE_COMPLETE_TYPE:
+                    from_peer = message_data.get("from")
+                    file_id = message_data.get("file_id")
+                    total_chunks = message_data.get("total_chunks")
+                    
+                    if self.on_file_complete:
+                        self.on_file_complete(from_peer, file_id, total_chunks)
+                    break  # Close connection after completion
                 
-                if self.on_file_error:
-                    self.on_file_error(from_peer, file_id, error)
+                elif message_type == self.FILE_ERROR_TYPE:
+                    from_peer = message_data.get("from")
+                    file_id = message_data.get("file_id")
+                    error = message_data.get("error")
+                    
+                    if self.on_file_error:
+                        self.on_file_error(from_peer, file_id, error)
+                    break  # Close connection after error
+                
+                else:
+                    # Unknown message type, close connection
+                    break
                     
         except json.JSONDecodeError:
             logger.warning("Received malformed message from %s", addr)
