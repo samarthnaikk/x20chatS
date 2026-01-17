@@ -42,6 +42,7 @@ class PeerDiscovery:
         self.broadcast_thread = None
         self.listen_thread = None
         self.sock = None
+        self.broadcast_error_logged = False  # Track if we've logged broadcast errors
         
     def start(self):
         """Start the peer discovery service."""
@@ -90,8 +91,10 @@ class PeerDiscovery:
                 self.sock.sendto(message_bytes, ('<broadcast>', self.BROADCAST_PORT))
                 
             except Exception as e:
-                if self.running:  # Only print if we didn't intentionally stop
-                    print(f"Error broadcasting presence: {e}")
+                # Only log broadcast errors once to avoid spam
+                if self.running and not self.broadcast_error_logged:
+                    print(f"Warning: Broadcast not available ({e}). Discovery will still work via listening.")
+                    self.broadcast_error_logged = True
             
             time.sleep(self.BROADCAST_INTERVAL)
     
