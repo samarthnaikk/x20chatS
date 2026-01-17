@@ -12,8 +12,10 @@ from textual.binding import Binding
 from textual.reactive import reactive
 from textual.message import Message
 from typing import Optional
+from pathlib import Path
 import threading
 import time
+import os
 
 from .peer import Peer
 
@@ -25,12 +27,21 @@ class MessageDisplay(Static):
         super().__init__(*args, **kwargs)
         self.messages = []
     
-    def add_message(self, sender: str, text: str, is_sent: bool = False):
-        """Add a message to the display."""
+    def add_message(self, sender: str, text: str, is_sent: bool = False, msg_type: str = "text"):
+        """Add a message to the display.
+        
+        Args:
+            sender: Name of the sender
+            text: Message text or file event description
+            is_sent: True if sent by this peer
+            msg_type: Type of message ('text', 'file_request', 'file_accepted', 
+                     'file_rejected', 'file_complete', 'file_error', 'file_progress')
+        """
         self.messages.append({
             "sender": sender,
             "text": text,
             "is_sent": is_sent,
+            "msg_type": msg_type,
             "timestamp": time.strftime("%H:%M:%S")
         })
         self.update_display()
@@ -48,12 +59,39 @@ class MessageDisplay(Static):
         
         lines = []
         for msg in self.messages:
-            if msg["is_sent"]:
-                # Sent messages in cyan
-                lines.append(f"[cyan][{msg['timestamp']}] You: {msg['text']}[/cyan]")
-            else:
-                # Received messages in yellow
-                lines.append(f"[yellow][{msg['timestamp']}] {msg['sender']}: {msg['text']}[/yellow]")
+            timestamp = f"[{msg['timestamp']}]"
+            
+            if msg["msg_type"] == "text":
+                if msg["is_sent"]:
+                    # Sent messages in cyan
+                    lines.append(f"[cyan]{timestamp} You: {msg['text']}[/cyan]")
+                else:
+                    # Received messages in yellow
+                    lines.append(f"[yellow]{timestamp} {msg['sender']}: {msg['text']}[/yellow]")
+            
+            elif msg["msg_type"] == "file_request":
+                # File requests in magenta
+                lines.append(f"[magenta]{timestamp} 📁 {msg['text']}[/magenta]")
+            
+            elif msg["msg_type"] == "file_accepted":
+                # File accepted in green
+                lines.append(f"[green]{timestamp} ✓ {msg['text']}[/green]")
+            
+            elif msg["msg_type"] == "file_rejected":
+                # File rejected in red
+                lines.append(f"[red]{timestamp} ✗ {msg['text']}[/red]")
+            
+            elif msg["msg_type"] == "file_complete":
+                # File complete in bright green
+                lines.append(f"[bright_green]{timestamp} ✓ {msg['text']}[/bright_green]")
+            
+            elif msg["msg_type"] == "file_error":
+                # File error in red
+                lines.append(f"[red]{timestamp} ⚠ {msg['text']}[/red]")
+            
+            elif msg["msg_type"] == "file_progress":
+                # File progress in blue
+                lines.append(f"[blue]{timestamp} ⏳ {msg['text']}[/blue]")
         
         self.update("\n".join(lines))
 
@@ -202,6 +240,9 @@ class P2PTextingApp(App):
     BINDINGS = [
         Binding("ctrl+c", "quit", "Quit", show=True),
         Binding("escape", "clear_input", "Clear", show=True),
+        Binding("ctrl+f", "send_file", "Send File", show=True),
+        Binding("ctrl+y", "accept_file", "Accept", show=False),
+        Binding("ctrl+n", "reject_file", "Reject", show=False),
     ]
     
     def __init__(self, peer_id: Optional[str] = None):
@@ -210,6 +251,8 @@ class P2PTextingApp(App):
         self.peer: Optional[Peer] = None
         self.selected_peer: Optional[str] = None
         self.peer_conversations = {}  # peer_id -> list of messages
+        self.pending_file_requests = {}  # file_id -> request info
+        self._file_send_mode = False  # Flag for file path input mode
         self.update_thread = None
         self.running = False
     
@@ -237,6 +280,11 @@ class P2PTextingApp(App):
         self.peer = Peer(peer_id=self.peer_id)
         self.peer.on_peer_discovered = self.handle_peer_discovered
         self.peer.on_message_received = self.handle_message_received
+        self.peer.on_file_request = self.handle_file_request
+        self.peer.on_file_response = self.handle_file_response
+        self.peer.on_file_progress = self.handle_file_progress
+        self.peer.on_file_complete = self.handle_file_complete
+        self.peer.on_file_error = self.handle_file_error
         self.peer.start()
         
         # Update status bar
@@ -290,7 +338,95 @@ class P2PTextingApp(App):
         self.peer_conversations[from_peer].append({
             "sender": from_peer,
             "text": message,
-            "is_sent": False
+            "is_sent": False,
+            "msg_type": "text"
+        })
+        
+        # Update display if this peer is selected
+        if self.selected_peer == from_peer:
+            self.call_from_thread(self.update_conversation_display)
+    
+    def handle_file_request(self, from_peer: str, file_id: str, filename: str, filesize: int):
+        """Handle incoming file transfer request."""
+        # Store pending request
+        self.pending_file_requests[file_id] = {
+            "from_peer": from_peer,
+            "filename": filename,
+            "filesize": filesize
+        }
+        
+        # Add to conversation
+        if from_peer not in self.peer_conversations:
+            self.peer_conversations[from_peer] = []
+        
+        size_mb = filesize / (1024 * 1024)
+        self.peer_conversations[from_peer].append({
+            "sender": from_peer,
+            "text": f"wants to send file '{filename}' ({size_mb:.2f} MB) - Press Ctrl+Y to accept, Ctrl+N to reject",
+            "is_sent": False,
+            "msg_type": "file_request"
+        })
+        
+        # Update display if this peer is selected
+        if self.selected_peer == from_peer:
+            self.call_from_thread(self.update_conversation_display)
+    
+    def handle_file_response(self, from_peer: str, file_id: str, accepted: bool, save_path: str):
+        """Handle file transfer response."""
+        if from_peer not in self.peer_conversations:
+            self.peer_conversations[from_peer] = []
+        
+        if accepted:
+            self.peer_conversations[from_peer].append({
+                "sender": from_peer,
+                "text": f"{from_peer} accepted the file transfer",
+                "is_sent": False,
+                "msg_type": "file_accepted"
+            })
+        else:
+            self.peer_conversations[from_peer].append({
+                "sender": from_peer,
+                "text": f"{from_peer} rejected the file transfer",
+                "is_sent": False,
+                "msg_type": "file_rejected"
+            })
+        
+        # Update display if this peer is selected
+        if self.selected_peer == from_peer:
+            self.call_from_thread(self.update_conversation_display)
+    
+    def handle_file_progress(self, from_peer: str, file_id: str, bytes_received: int, total_bytes: int):
+        """Handle file transfer progress."""
+        # Update progress in conversation (optional, could spam the display)
+        # For now, we'll skip detailed progress updates
+        pass
+    
+    def handle_file_complete(self, from_peer: str, file_id: str, filename: str):
+        """Handle file transfer completion."""
+        if from_peer not in self.peer_conversations:
+            self.peer_conversations[from_peer] = []
+        
+        self.peer_conversations[from_peer].append({
+            "sender": from_peer,
+            "text": f"File '{filename}' transfer complete",
+            "is_sent": False,
+            "msg_type": "file_complete"
+        })
+        
+        # Update display if this peer is selected
+        if self.selected_peer == from_peer:
+            self.call_from_thread(self.update_conversation_display)
+    
+    def handle_file_error(self, from_peer: str, file_id: str, error: str):
+        """Handle file transfer error."""
+        if from_peer not in self.peer_conversations:
+            self.peer_conversations[from_peer] = []
+        
+        self.peer_conversations[from_peer].append({
+            "sender": from_peer,
+            "text": f"File transfer error: {error}",
+            "is_sent": False,
+            "msg_type": "file_error"
         })
         
         # Update display if this peer is selected
@@ -321,7 +457,8 @@ class P2PTextingApp(App):
                 conv_display.add_message(
                     msg["sender"],
                     msg["text"],
-                    msg["is_sent"]
+                    msg["is_sent"],
+                    msg.get("msg_type", "text")
                 )
     
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -337,7 +474,57 @@ class P2PTextingApp(App):
             event.input.value = ""
             return
         
-        # Send message
+        # Check if we're in file send mode
+        if self._file_send_mode:
+            self._file_send_mode = False
+            file_path = message
+            
+            # Reset placeholder
+            event.input.placeholder = "Type a message..."
+            event.input.value = ""
+            
+            # Validate file exists
+            if not os.path.exists(file_path):
+                if self.selected_peer not in self.peer_conversations:
+                    self.peer_conversations[self.selected_peer] = []
+                self.peer_conversations[self.selected_peer].append({
+                    "sender": "System",
+                    "text": f"Error: File '{file_path}' not found",
+                    "is_sent": True,
+                    "msg_type": "file_error"
+                })
+                self.update_conversation_display()
+                return
+            
+            # Send file
+            file_id = self.peer.send_file(self.selected_peer, file_path)
+            
+            if file_id:
+                # Add to conversation
+                if self.selected_peer not in self.peer_conversations:
+                    self.peer_conversations[self.selected_peer] = []
+                filename = os.path.basename(file_path)
+                self.peer_conversations[self.selected_peer].append({
+                    "sender": "You",
+                    "text": f"Sending file '{filename}'...",
+                    "is_sent": True,
+                    "msg_type": "file_request"
+                })
+                self.update_conversation_display()
+            else:
+                # Error sending
+                if self.selected_peer not in self.peer_conversations:
+                    self.peer_conversations[self.selected_peer] = []
+                self.peer_conversations[self.selected_peer].append({
+                    "sender": "System",
+                    "text": "Error: Failed to send file request",
+                    "is_sent": True,
+                    "msg_type": "file_error"
+                })
+                self.update_conversation_display()
+            return
+        
+        # Normal text message
         success = self.peer.send_message(self.selected_peer, message)
         
         if success:
@@ -347,7 +534,8 @@ class P2PTextingApp(App):
             self.peer_conversations[self.selected_peer].append({
                 "sender": "You",
                 "text": message,
-                "is_sent": True
+                "is_sent": True,
+                "msg_type": "text"
             })
             
             # Update display
@@ -356,10 +544,122 @@ class P2PTextingApp(App):
         # Clear input
         event.input.value = ""
     
+    def action_send_file(self) -> None:
+        """Action to send a file to selected peer."""
+        if not self.selected_peer:
+            return
+        
+        # Create a simple file selection prompt
+        import os
+        input_widget = self.query_one("#message-input", Input)
+        input_widget.placeholder = "Enter file path to send (or press Esc to cancel)..."
+        input_widget.value = ""
+        
+        # We'll handle the file path in a special mode
+        self._file_send_mode = True
+    
+    def action_accept_file(self) -> None:
+        """Action to accept the latest file request."""
+        if not self.selected_peer:
+            return
+        
+        # Find the most recent file request from this peer
+        file_id = None
+        for fid in reversed(list(self.pending_file_requests.keys())):
+            if self.pending_file_requests[fid]["from_peer"] == self.selected_peer:
+                file_id = fid
+                break
+        
+        if not file_id:
+            return
+        
+        # Create data directory if it doesn't exist
+        # Get project root directory
+        project_root = Path(__file__).parent.parent.parent
+        data_dir = project_root / "data" / "received_files"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Sanitize filename to prevent directory traversal
+        filename = self.pending_file_requests[file_id]["filename"]
+        # Remove path components and dangerous characters
+        safe_filename = os.path.basename(filename)
+        # Keep alphanumeric, space, dash, underscore, and dot
+        # This preserves most valid filenames while preventing attacks
+        safe_filename = "".join(c for c in safe_filename 
+                              if c.isalnum() or c in "._- " or ord(c) > 127)
+        safe_filename = safe_filename.strip()
+        if not safe_filename or safe_filename.startswith('.'):
+            safe_filename = "received_file"
+        
+        # Save to data directory
+        save_path = data_dir / safe_filename
+        
+        # Handle duplicate filenames
+        if save_path.exists():
+            base = save_path.stem
+            ext = save_path.suffix
+            counter = 1
+            while (data_dir / f"{base}_{counter}{ext}").exists():
+                counter += 1
+            save_path = data_dir / f"{base}_{counter}{ext}"
+        
+        # Accept the file
+        self.peer.accept_file(file_id, str(save_path))
+        
+        # Remove from pending
+        del self.pending_file_requests[file_id]
+        
+        # Add to conversation
+        if self.selected_peer not in self.peer_conversations:
+            self.peer_conversations[self.selected_peer] = []
+        self.peer_conversations[self.selected_peer].append({
+            "sender": "You",
+            "text": f"Accepted file transfer - saving to {save_path}",
+            "is_sent": True,
+            "msg_type": "file_accepted"
+        })
+        self.update_conversation_display()
+    
+    def action_reject_file(self) -> None:
+        """Action to reject the latest file request."""
+        if not self.selected_peer:
+            return
+        
+        # Find the most recent file request from this peer
+        file_id = None
+        for fid in reversed(list(self.pending_file_requests.keys())):
+            if self.pending_file_requests[fid]["from_peer"] == self.selected_peer:
+                file_id = fid
+                break
+        
+        if not file_id:
+            return
+        
+        # Reject the file
+        self.peer.reject_file(file_id)
+        
+        # Remove from pending
+        del self.pending_file_requests[file_id]
+        
+        # Add to conversation
+        if self.selected_peer not in self.peer_conversations:
+            self.peer_conversations[self.selected_peer] = []
+        self.peer_conversations[self.selected_peer].append({
+            "sender": "You",
+            "text": "Rejected file transfer",
+            "is_sent": True,
+            "msg_type": "file_rejected"
+        })
+        self.update_conversation_display()
+    
     def action_clear_input(self) -> None:
         """Clear the input field."""
         input_widget = self.query_one("#message-input", Input)
         input_widget.value = ""
+        # Reset file send mode if active
+        if self._file_send_mode:
+            self._file_send_mode = False
+            input_widget.placeholder = "Type a message..."
     
     def action_quit(self) -> None:
         """Quit the application."""
