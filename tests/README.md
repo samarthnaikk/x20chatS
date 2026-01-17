@@ -1,15 +1,49 @@
-# tests/
+# Tests Directory
 
-This directory contains all test files for the P2P texting application.
+This directory contains test files for the P2P texting application.
 
-## Purpose
+## Available Tests
 
-The `tests` directory will include:
+### `test_p2p.py`
+Automated integration test for P2P messaging functionality.
+
+**Run the test:**
+```bash
+python tests/test_p2p.py
+```
+
+**What it tests:**
+- Peer discovery using UDP broadcast
+- Message exchange using TCP sockets
+- Callback handling for events
+- Multi-peer communication
+
+**Expected output:**
+```
+✅ ALL TESTS PASSED!
+```
+
+## Test Coverage
+
+Current test coverage includes:
+- ✅ Peer discovery mechanism
+- ✅ TCP message sending and receiving
+- ✅ Peer-to-peer communication
+- ✅ Basic error handling
+
+## Future Tests
+
+Additional tests to be added:
 - Unit tests for individual components
-- Integration tests for module interactions
-- End-to-end tests for complete workflows
-- Test fixtures and utilities
+- Edge case handling
+- Network failure scenarios
+- Performance tests
+- Stress tests with many peers
 
-## Testing Framework
+## Testing Conventions
 
-Testing framework and conventions will be established as development progresses.
+- Tests use Python's standard library (no external testing frameworks)
+- Each test should be self-contained and independent
+- Tests should clean up resources (stop peers, close sockets)
+- Tests should report clear success/failure messages
+

@@ -12,15 +12,90 @@ A peer-to-peer (P2P) texting application built with Python that enables direct, 
 
 ## Features
 
-_To be determined - features will be documented as they are implemented_
+### Current Features (v0.1.0)
+
+- **Peer Discovery**: Automatic discovery of peers on the local network using UDP broadcast
+- **Direct Messaging**: Send and receive text messages directly between peers
+- **No Central Server**: Fully decentralized architecture
+- **CLI Interface**: Simple command-line interface for interaction
+- **Real-time Updates**: Immediate notification of new peers and messages
+- **Multi-peer Support**: Communicate with multiple peers simultaneously
+
+### Future Features
+
+- Message encryption and security
+- User authentication
+- Message persistence and history
+- GUI interface
+- Cross-network communication (NAT traversal)
+- Group chats
+- File sharing
 
 ## Architecture
 
-_To be determined - architectural decisions and system design will be documented as the project evolves_
+The application uses a decentralized architecture with two main components:
+
+1. **Peer Discovery**: UDP broadcast-based discovery (port 37020) for finding peers on LAN
+2. **Messaging**: TCP socket-based messaging for reliable message delivery
+
+For detailed architecture documentation, see [docs/architecture.md](docs/architecture.md).
 
 ## Setup
 
-_To be determined - setup instructions will be provided once the application is implemented_
+### Requirements
+
+- Python 3.8 or higher
+- No external dependencies (uses Python standard library only)
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/samarthnaikk/x20chatS.git
+cd x20chatS
+```
+
+2. Run the application:
+```bash
+python src/main.py
+```
+
+Or with a custom peer ID:
+```bash
+python src/main.py my-peer-name
+```
+
+### Quick Start
+
+1. **Start first peer** (Terminal 1):
+```bash
+python src/main.py peer-1
+```
+
+2. **Start second peer** (Terminal 2):
+```bash
+python src/main.py peer-2
+```
+
+3. **List discovered peers**:
+```
+[peer-1]> list
+```
+
+4. **Send a message**:
+```
+[peer-1]> send peer-2
+Enter message for peer-2 (press Enter to send):
+> Hello from peer-1!
+```
+
+For complete usage instructions, see [docs/usage.md](docs/usage.md).
+
+## Documentation
+
+- [Usage Guide](docs/usage.md) - How to use the application
+- [Peer Discovery](docs/peer_discovery.md) - How peer discovery works
+- [Architecture](docs/architecture.md) - System design and technical details
 
 ## Project Structure
 
