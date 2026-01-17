@@ -564,8 +564,8 @@ class P2PTextingApp(App):
         
         # Find the most recent file request from this peer
         file_id = None
-        for fid, req in self.pending_file_requests.items():
-            if req["from_peer"] == self.selected_peer:
+        for fid in reversed(list(self.pending_file_requests.keys())):
+            if self.pending_file_requests[fid]["from_peer"] == self.selected_peer:
                 file_id = fid
                 break
         
@@ -574,12 +574,30 @@ class P2PTextingApp(App):
         
         # Create data directory if it doesn't exist
         import os
-        data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data", "received_files")
+        # Use absolute path relative to project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        data_dir = os.path.join(project_root, "data", "received_files")
         os.makedirs(data_dir, exist_ok=True)
         
-        # Save to data directory
+        # Sanitize filename to prevent directory traversal
+        import os.path
         filename = self.pending_file_requests[file_id]["filename"]
-        save_path = os.path.join(data_dir, filename)
+        safe_filename = os.path.basename(filename)  # Remove any path components
+        # Remove any remaining dangerous characters
+        safe_filename = "".join(c for c in safe_filename if c.isalnum() or c in "._- ")
+        if not safe_filename:
+            safe_filename = "received_file"
+        
+        # Save to data directory
+        save_path = os.path.join(data_dir, safe_filename)
+        
+        # Handle duplicate filenames
+        if os.path.exists(save_path):
+            base, ext = os.path.splitext(safe_filename)
+            counter = 1
+            while os.path.exists(os.path.join(data_dir, f"{base}_{counter}{ext}")):
+                counter += 1
+            save_path = os.path.join(data_dir, f"{base}_{counter}{ext}")
         
         # Accept the file
         self.peer.accept_file(file_id, save_path)
@@ -605,8 +623,8 @@ class P2PTextingApp(App):
         
         # Find the most recent file request from this peer
         file_id = None
-        for fid, req in self.pending_file_requests.items():
-            if req["from_peer"] == self.selected_peer:
+        for fid in reversed(list(self.pending_file_requests.keys())):
+            if self.pending_file_requests[fid]["from_peer"] == self.selected_peer:
                 file_id = fid
                 break
         

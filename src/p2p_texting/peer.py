@@ -195,7 +195,14 @@ class Peer:
         transfer_info["save_path"] = save_path
         transfer_info["status"] = "accepted"
         transfer_info["received_chunks"] = []
-        transfer_info["file_handle"] = open(save_path, 'wb')
+        transfer_info["bytes_received"] = 0
+        
+        try:
+            transfer_info["file_handle"] = open(save_path, 'wb')
+        except Exception as e:
+            print(f"Error: Cannot open file for writing: {e}")
+            del self.active_file_transfers[file_id]
+            return False
         
         # Send acceptance
         return self.messaging_service.send_file_response(
@@ -324,12 +331,18 @@ class Peer:
         # Write chunk to file
         if "file_handle" in transfer_info:
             transfer_info["file_handle"].write(chunk_data)
+            if "received_chunks" not in transfer_info:
+                transfer_info["received_chunks"] = []
             transfer_info["received_chunks"].append(chunk_num)
+            if "bytes_received" not in transfer_info:
+                transfer_info["bytes_received"] = 0
+            transfer_info["bytes_received"] += len(chunk_data)
             
             # Notify about progress
             if self.on_file_progress:
-                bytes_received = len(transfer_info["received_chunks"]) * self.messaging_service.CHUNK_SIZE
-                self.on_file_progress(from_peer, file_id, bytes_received, transfer_info["filesize"])
+                self.on_file_progress(from_peer, file_id, 
+                                    transfer_info["bytes_received"], 
+                                    transfer_info["filesize"])
     
     def _handle_file_complete(self, from_peer: str, file_id: str, total_chunks: int):
         """Internal handler for file transfer completion."""

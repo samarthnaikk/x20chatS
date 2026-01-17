@@ -316,9 +316,14 @@ class MessagingService:
     
     def _handle_connection(self, client_socket: socket.socket, addr):
         """Handle an incoming connection from a peer."""
+        max_messages_per_connection = 1000  # Limit to prevent resource exhaustion
+        message_count = 0
+        
         try:
             # Keep connection open for multiple messages (file chunks)
-            while True:
+            while message_count < max_messages_per_connection:
+                message_count += 1
+                
                 # Receive message length
                 length_bytes = client_socket.recv(4)
                 if not length_bytes:
