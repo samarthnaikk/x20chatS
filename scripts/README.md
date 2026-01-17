@@ -1,16 +1,42 @@
-# scripts/
+# Scripts Directory
 
-This directory contains utility scripts for development and deployment.
+This directory contains utility scripts for the P2P texting application.
 
-## Purpose
+## Available Scripts
 
-The `scripts` directory will include:
-- Build and deployment scripts
-- Database migration scripts
-- Development utilities
-- Automation helpers
-- Setup and configuration scripts
+### Run Application
+To run the P2P application:
 
-## Usage
+**Single peer:**
+```bash
+python src/main.py [peer-id]
+```
 
-Scripts will be documented individually as they are added to the project.
+**Multiple peers (different terminals):**
+```bash
+# Terminal 1
+python src/main.py alice
+
+# Terminal 2
+python src/main.py bob
+```
+
+### Running Tests
+To run the automated test suite:
+```bash
+python tests/test_p2p.py
+```
+
+This will:
+- Create two test peers
+- Verify peer discovery
+- Test message exchange
+- Report results
+
+## Development Utilities
+
+Additional development scripts will be added here as needed for:
+- Build and deployment
+- Testing automation
+- Setup and configuration
+
