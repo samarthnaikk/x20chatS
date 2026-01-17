@@ -330,19 +330,37 @@ class Peer:
         
         # Write chunk to file
         if "file_handle" in transfer_info:
-            transfer_info["file_handle"].write(chunk_data)
-            if "received_chunks" not in transfer_info:
-                transfer_info["received_chunks"] = []
-            transfer_info["received_chunks"].append(chunk_num)
-            if "bytes_received" not in transfer_info:
-                transfer_info["bytes_received"] = 0
-            transfer_info["bytes_received"] += len(chunk_data)
-            
-            # Notify about progress
-            if self.on_file_progress:
-                self.on_file_progress(from_peer, file_id, 
-                                    transfer_info["bytes_received"], 
-                                    transfer_info["filesize"])
+            try:
+                transfer_info["file_handle"].write(chunk_data)
+                if "received_chunks" not in transfer_info:
+                    transfer_info["received_chunks"] = []
+                transfer_info["received_chunks"].append(chunk_num)
+                if "bytes_received" not in transfer_info:
+                    transfer_info["bytes_received"] = 0
+                transfer_info["bytes_received"] += len(chunk_data)
+                
+                # Notify about progress
+                if self.on_file_progress:
+                    self.on_file_progress(from_peer, file_id, 
+                                        transfer_info["bytes_received"], 
+                                        transfer_info["filesize"])
+            except IOError as e:
+                # Handle disk full, permission errors, etc.
+                import logging
+                logging.error("Error writing file chunk: %s", e)
+                
+                # Close file handle
+                try:
+                    transfer_info["file_handle"].close()
+                except:
+                    pass
+                
+                # Notify about error
+                if self.on_file_error:
+                    self.on_file_error(from_peer, file_id, f"Write error: {e}")
+                
+                # Clean up
+                del self.active_file_transfers[file_id]
     
     def _handle_file_complete(self, from_peer: str, file_id: str, total_chunks: int):
         """Internal handler for file transfer completion."""
@@ -353,7 +371,11 @@ class Peer:
         
         # Close file handle
         if "file_handle" in transfer_info:
-            transfer_info["file_handle"].close()
+            try:
+                transfer_info["file_handle"].close()
+            except Exception as e:
+                import logging
+                logging.warning("Error closing file handle: %s", e)
         
         transfer_info["status"] = "complete"
         
@@ -371,7 +393,11 @@ class Peer:
             
             # Close file handle if open
             if "file_handle" in transfer_info:
-                transfer_info["file_handle"].close()
+                try:
+                    transfer_info["file_handle"].close()
+                except Exception as e:
+                    import logging
+                    logging.warning("Error closing file handle: %s", e)
             
             # Notify application
             if self.on_file_error:

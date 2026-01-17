@@ -574,33 +574,39 @@ class P2PTextingApp(App):
         
         # Create data directory if it doesn't exist
         import os
-        # Use absolute path relative to project root
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        data_dir = os.path.join(project_root, "data", "received_files")
-        os.makedirs(data_dir, exist_ok=True)
+        from pathlib import Path
+        
+        # Get project root directory
+        project_root = Path(__file__).parent.parent.parent
+        data_dir = project_root / "data" / "received_files"
+        data_dir.mkdir(parents=True, exist_ok=True)
         
         # Sanitize filename to prevent directory traversal
-        import os.path
         filename = self.pending_file_requests[file_id]["filename"]
-        safe_filename = os.path.basename(filename)  # Remove any path components
-        # Remove any remaining dangerous characters
-        safe_filename = "".join(c for c in safe_filename if c.isalnum() or c in "._- ")
-        if not safe_filename:
+        # Remove path components and dangerous characters
+        safe_filename = os.path.basename(filename)
+        # Keep alphanumeric, space, dash, underscore, and dot
+        # This preserves most valid filenames while preventing attacks
+        safe_filename = "".join(c for c in safe_filename 
+                              if c.isalnum() or c in "._- " or ord(c) > 127)
+        safe_filename = safe_filename.strip()
+        if not safe_filename or safe_filename.startswith('.'):
             safe_filename = "received_file"
         
         # Save to data directory
-        save_path = os.path.join(data_dir, safe_filename)
+        save_path = data_dir / safe_filename
         
         # Handle duplicate filenames
-        if os.path.exists(save_path):
-            base, ext = os.path.splitext(safe_filename)
+        if save_path.exists():
+            base = save_path.stem
+            ext = save_path.suffix
             counter = 1
-            while os.path.exists(os.path.join(data_dir, f"{base}_{counter}{ext}")):
+            while (data_dir / f"{base}_{counter}{ext}").exists():
                 counter += 1
-            save_path = os.path.join(data_dir, f"{base}_{counter}{ext}")
+            save_path = data_dir / f"{base}_{counter}{ext}"
         
         # Accept the file
-        self.peer.accept_file(file_id, save_path)
+        self.peer.accept_file(file_id, str(save_path))
         
         # Remove from pending
         del self.pending_file_requests[file_id]
