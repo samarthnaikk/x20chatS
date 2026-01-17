@@ -8,6 +8,7 @@ The P2P Texting Application features a modern Terminal User Interface (TUI) buil
 
 - **Real-time peer discovery**: Automatically displays newly discovered peers
 - **Interactive message display**: Color-coded messages for easy distinction
+- **File sharing**: Send and receive files with visual feedback
 - **Keyboard-driven navigation**: No mouse required
 - **Status bar**: Shows connection state, peer ID, and network information
 - **Persistent conversations**: Message history maintained per peer during the session
@@ -53,6 +54,11 @@ The TUI uses a clean 3-panel layout:
    - Color-coded messages:
      - **Cyan**: Your sent messages
      - **Yellow**: Received messages from peer
+     - **Magenta**: File transfer requests (📁)
+     - **Green**: File transfer accepted (✓)
+     - **Red**: File transfer rejected/errors (✗/⚠)
+     - **Bright Green**: File transfer complete (✓)
+     - **Blue**: File transfer progress (⏳)
    - Auto-scrolls to show latest messages
 
 4. **Bottom: Input Box**
@@ -69,6 +75,9 @@ The TUI uses a clean 3-panel layout:
 | `Enter`       | Send message                    |
 | `Esc`         | Clear input field               |
 | `Ctrl+C`      | Exit application                |
+| `Ctrl+F`      | Send file to selected peer      |
+| `Ctrl+Y`      | Accept incoming file transfer   |
+| `Ctrl+N`      | Reject incoming file transfer   |
 
 ## Color Scheme
 
@@ -114,6 +123,38 @@ python src/main.py --cli
 2. **Type your message**: Start typing in the input box at the bottom
 3. **Send**: Press Enter to send the message
 4. **View conversation**: Messages appear in the conversation panel on the right
+
+### Sending Files
+
+1. **Select a peer**: Use arrow keys to highlight a peer in the left panel
+2. **Initiate file transfer**: Press `Ctrl+F`
+3. **Enter file path**: Type the full path to the file you want to send
+4. **Confirm**: Press Enter to send the file request
+5. **Wait for response**: The receiver will see a prompt to accept or reject
+6. **Transfer**: Once accepted, the file will be transferred automatically
+
+**Example**:
+```
+Press Ctrl+F
+Enter file path: /home/user/document.pdf
+Press Enter
+Status: "Sending file 'document.pdf'..."
+Status: "File 'document.pdf' transfer complete"
+```
+
+### Receiving Files
+
+1. **Incoming request**: You'll see a message like:
+   ```
+   [14:23:45] 📁 peer-2 wants to send file 'document.pdf' (2.5 MB) - Press Ctrl+Y to accept, Ctrl+N to reject
+   ```
+2. **Accept**: Press `Ctrl+Y` to accept the file
+   - Files are saved to `data/received_files/` directory
+3. **Reject**: Press `Ctrl+N` to reject the file
+4. **Transfer progress**: You'll see updates as the file is received
+5. **Completion**: A message confirms when the transfer is complete
+
+**Note**: Only the most recent file request can be accepted/rejected with `Ctrl+Y`/`Ctrl+N`
 
 ### Peer Discovery
 
@@ -172,6 +213,15 @@ If keyboard controls don't respond:
 - Check that no other application is capturing keyboard input
 - Try restarting the application
 
+### File Transfer Issues
+
+If file transfers fail:
+- Verify the file path is correct and readable
+- Ensure both peers have sufficient disk space
+- Check network connectivity (same as messaging)
+- Files are saved to `data/received_files/` by default
+- Large files may take time - be patient during transfer
+
 ### Peer Discovery Issues
 
 If peers aren't discovered:
@@ -200,7 +250,11 @@ Potential improvements for future versions:
 - Mouse support for clicking peers
 - Message search functionality
 - Multi-peer group chat view
-- File transfer progress indicators
+- File transfer pause/resume
+- File encryption
+- File transfer progress bars with percentage
+- Drag-and-drop file support
+- Multiple concurrent file transfers
 - Emoji picker
 - Customizable keybindings
 

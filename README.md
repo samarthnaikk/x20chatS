@@ -16,12 +16,14 @@ A peer-to-peer (P2P) texting application built with Python that enables direct, 
 
 - **Peer Discovery**: Automatic discovery of peers on the local network using UDP broadcast
 - **Direct Messaging**: Send and receive text messages directly between peers
+- **File Sharing**: Send and receive files directly between peers with chunked transfer
 - **No Central Server**: Fully decentralized architecture
 - **Modern TUI**: Interactive terminal user interface with real-time updates
 - **CLI Interface**: Simple command-line interface also available
 - **Real-time Updates**: Immediate notification of new peers and messages
 - **Multi-peer Support**: Communicate with multiple peers simultaneously
 - **Color-coded Messages**: Visual distinction between sent and received messages
+- **File Transfer Progress**: Visual feedback for file transfers with accept/reject prompts
 
 ### Future Features
 
@@ -31,14 +33,17 @@ A peer-to-peer (P2P) texting application built with Python that enables direct, 
 - GUI interface
 - Cross-network communication (NAT traversal)
 - Group chats
-- File sharing
+- File transfer pause/resume
+- File encryption
+- Transfer history persistence
 
 ## Architecture
 
-The application uses a decentralized architecture with two main components:
+The application uses a decentralized architecture with three main components:
 
 1. **Peer Discovery**: UDP broadcast-based discovery (port 37020) for finding peers on LAN
 2. **Messaging**: TCP socket-based messaging for reliable message delivery
+3. **File Sharing**: Chunked file transfer over TCP with metadata exchange
 
 For detailed architecture documentation, see [docs/architecture.md](docs/architecture.md).
 
@@ -93,6 +98,8 @@ python src/main.py peer-2
    - Select a peer using arrow keys
    - Type your message in the input box
    - Press Enter to send
+   - Press Ctrl+F to send a file
+   - Press Ctrl+Y to accept incoming file / Ctrl+N to reject
 
 For the old CLI interface:
 ```bash
