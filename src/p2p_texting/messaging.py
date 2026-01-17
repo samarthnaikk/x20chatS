@@ -51,6 +51,8 @@ class MessagingService:
         self.running = True
         
         # Create TCP socket for listening
+        # Note: Binding to all interfaces ('') is intentional for P2P connectivity
+        # This allows peers on any network interface to connect
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind(('', self.port))
