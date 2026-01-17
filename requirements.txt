@@ -1,0 +1,7 @@
+# Python Dependencies
+# 
+# This file will list all Python package dependencies for the P2P texting application.
+# Dependencies will be added as features are implemented.
+#
+# Usage:
+#   pip install -r requirements.txt
