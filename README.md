@@ -17,9 +17,11 @@ A peer-to-peer (P2P) texting application built with Python that enables direct, 
 - **Peer Discovery**: Automatic discovery of peers on the local network using UDP broadcast
 - **Direct Messaging**: Send and receive text messages directly between peers
 - **No Central Server**: Fully decentralized architecture
-- **CLI Interface**: Simple command-line interface for interaction
+- **Modern TUI**: Interactive terminal user interface with real-time updates
+- **CLI Interface**: Simple command-line interface also available
 - **Real-time Updates**: Immediate notification of new peers and messages
 - **Multi-peer Support**: Communicate with multiple peers simultaneously
+- **Color-coded Messages**: Visual distinction between sent and received messages
 
 ### Future Features
 
@@ -45,7 +47,7 @@ For detailed architecture documentation, see [docs/architecture.md](docs/archite
 ### Requirements
 
 - Python 3.8 or higher
-- No external dependencies (uses Python standard library only)
+- Textual library for TUI (install via requirements.txt)
 
 ### Installation
 
@@ -55,7 +57,12 @@ git clone https://github.com/samarthnaikk/x20chatS.git
 cd x20chatS
 ```
 
-2. Run the application:
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the application:
 ```bash
 python src/main.py
 ```
@@ -63,6 +70,11 @@ python src/main.py
 Or with a custom peer ID:
 ```bash
 python src/main.py my-peer-name
+```
+
+To use the old CLI interface:
+```bash
+python src/main.py --cli
 ```
 
 ### Quick Start
@@ -77,22 +89,29 @@ python src/main.py peer-1
 python src/main.py peer-2
 ```
 
-3. **List discovered peers**:
-```
-[peer-1]> list
+3. **Use the TUI**:
+   - Select a peer using arrow keys
+   - Type your message in the input box
+   - Press Enter to send
+
+For the old CLI interface:
+```bash
+python src/main.py peer-1 --cli
 ```
 
-4. **Send a message**:
+Then list peers and send messages:
 ```
+[peer-1]> list
 [peer-1]> send peer-2
 Enter message for peer-2 (press Enter to send):
 > Hello from peer-1!
 ```
 
-For complete usage instructions, see [docs/usage.md](docs/usage.md).
+For complete usage instructions, see [docs/usage.md](docs/usage.md) and [docs/tui.md](docs/tui.md).
 
 ## Documentation
 
+- [TUI Guide](docs/tui.md) - Terminal User Interface guide and features
 - [Usage Guide](docs/usage.md) - How to use the application
 - [Peer Discovery](docs/peer_discovery.md) - How peer discovery works
 - [Architecture](docs/architecture.md) - System design and technical details
