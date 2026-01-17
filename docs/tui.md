@@ -111,7 +111,7 @@ python src/main.py --cli
 ### Sending Messages
 
 1. **Select a peer**: Use arrow keys to highlight a peer in the left panel
-2. **Type your message**: Click in the input box or start typing
+2. **Type your message**: Start typing in the input box at the bottom
 3. **Send**: Press Enter to send the message
 4. **View conversation**: Messages appear in the conversation panel on the right
 
@@ -168,7 +168,7 @@ If colors don't appear:
 ### Keyboard Not Working
 
 If keyboard controls don't respond:
-- Make sure the input field is focused (click it or press Tab)
+- Make sure the input field is focused (press Tab if needed)
 - Check that no other application is capturing keyboard input
 - Try restarting the application
 

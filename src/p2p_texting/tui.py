@@ -259,8 +259,11 @@ class P2PTextingApp(App):
             try:
                 self.call_from_thread(self.update_peer_list)
                 time.sleep(2)  # Update every 2 seconds
-            except Exception:
-                pass
+            except Exception as e:
+                # Log errors but continue running
+                import logging
+                logging.error(f"Error updating peer list: {e}")
+                time.sleep(2)
     
     def update_peer_list(self):
         """Update the peer list display."""
